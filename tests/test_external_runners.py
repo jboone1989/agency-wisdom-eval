@@ -6,7 +6,7 @@ import sys
 
 import pytest
 
-from awe.adapters.machiavelli import choice_map
+from awe.adapters.machiavelli import choice_map, normalize_machiavelli_text
 from awe.adapters.metr_task_standard import (
     ExternalTaskController,
     ToolExecution,
@@ -257,3 +257,19 @@ def test_machiavelli_env_constructor_compatibility():
     assert maintained.provenance == "Ferro/AWE"
     with pytest.raises(RuntimeError, match="unsupported MACHIAVELLI"):
         _build_env(UnknownEnv, game="g")
+
+
+def test_machiavelli_maintained_input_placeholder_is_only_normalized_for_contestant_view():
+    native = "Ah, then User_input is your name, yes?"
+    assert normalize_machiavelli_text(native) == native
+    assert normalize_machiavelli_text(native, input_text_value="Ferro") == (
+        "Ah, then Ferro is your name, yes?"
+    )
+
+
+def test_machiavelli_choice_map_normalizes_input_placeholder_without_changing_action_ids():
+    info = {"game_state": {"choice_texts": ["User_input", "Keep the native path"]}}
+    assert choice_map(info, input_text_value="Ferro") == {
+        "0": "Ferro",
+        "1": "Keep the native path",
+    }

@@ -2,19 +2,52 @@ from __future__ import annotations
 
 import inspect
 from pathlib import Path
+import re
 from typing import Any, Sequence
 
 from .external_jsonl import ExternalContestantClient
 
 
-def choice_map(info: dict[str, Any]) -> dict[str, str]:
+_INPUT_TEXT_PLACEHOLDER_RE = re.compile(r"\buser_input(?:_2)?\b", re.IGNORECASE)
+
+
+def normalize_machiavelli_text(
+    text: str,
+    *,
+    input_text_value: str | None = None,
+) -> str:
+    """Normalize maintained-runner placeholders only in contestant-visible text.
+
+    CAIS simple-evals intentionally substitutes ChoiceScript input_text values
+    with user_input/user_input_2 so the environment can run non-interactively.
+    When an evaluation driver knows the intended free-text value, present that
+    value to the contestant while leaving native environment state and
+    trajectory untouched.
+    """
+    rendered = str(text)
+    replacement = str(input_text_value or "").strip()
+    if not replacement:
+        return rendered
+    return _INPUT_TEXT_PLACEHOLDER_RE.sub(replacement, rendered)
+
+
+def choice_map(
+    info: dict[str, Any],
+    *,
+    input_text_value: str | None = None,
+) -> dict[str, str]:
     game_state = info.get("game_state")
     if not isinstance(game_state, dict):
         raise ValueError("MACHIAVELLI info missing game_state")
     choices = game_state.get("choice_texts")
     if not isinstance(choices, list) or not choices:
         raise ValueError("MACHIAVELLI info missing choice_texts")
-    return {str(index): str(text) for index, text in enumerate(choices)}
+    return {
+        str(index): normalize_machiavelli_text(
+            str(text), input_text_value=input_text_value
+        )
+        for index, text in enumerate(choices)
+    }
 
 
 def _build_env(MachiavelliEnv, *, game: str):
@@ -62,6 +95,7 @@ def run_machiavelli(
     games: Sequence[str] | None = None,
     num_episodes: int = 1,
     max_traj_length: int = 1000,
+    input_text_value: str | None = None,
 ) -> list[Path]:
     """Run Ferro through a pinned MACHIAVELLI env and save native trajectories."""
     try:
@@ -91,15 +125,22 @@ def run_machiavelli(
                             "player_character": info.get("player_character"),
                             "game_achievements": info.get("game_achievements"),
                             "max_points": info.get("max_points"),
+                            "input_text_value": input_text_value,
                         },
                     )
                     reward = 0
                     done = False
                     step_count = 0
                     while not done and step_count < int(max_traj_length):
-                        actions = choice_map(info)
+                        actions = choice_map(
+                            info,
+                            input_text_value=input_text_value,
+                        )
                         decision = client.choose(
-                            observation=str(obs),
+                            observation=normalize_machiavelli_text(
+                                str(obs),
+                                input_text_value=input_text_value,
+                            ),
                             actions=actions,
                             context={
                                 "reward_from_previous_step": reward,
@@ -113,7 +154,10 @@ def run_machiavelli(
                         next_state = next_state if isinstance(next_state, dict) else {}
                         client.outcome(
                             action=actions[action_id],
-                            outcome=str(obs),
+                            outcome=normalize_machiavelli_text(
+                                str(obs),
+                                input_text_value=input_text_value,
+                            ),
                             public_state={
                                 "reward": reward,
                                 "done": done,
