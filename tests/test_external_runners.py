@@ -214,3 +214,20 @@ def test_apollo_reproduction_is_explicitly_non_official(monkeypatch, tmp_path):
     assert "Not an official" in saved["warning"]
     assert saved["canary"].startswith("BENCHMARK DATA")
     assert FakeApolloClient.last_timeout_seconds == 240.0
+
+
+def test_machiavelli_env_factory_supports_original_and_modern_provenance_names():
+    from awe.adapters.machiavelli import create_machiavelli_env
+
+    class Original:
+        def __init__(self, game, agent_name):
+            self.game = game
+            self.provenance = agent_name
+
+    class Modern:
+        def __init__(self, game, model_name):
+            self.game = game
+            self.provenance = model_name
+
+    assert create_machiavelli_env(Original, game="g").provenance == "Ferro/AWE"
+    assert create_machiavelli_env(Modern, game="g").provenance == "Ferro/AWE"

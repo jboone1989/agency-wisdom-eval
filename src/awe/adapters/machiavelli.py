@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -16,6 +17,27 @@ def choice_map(info: dict[str, Any]) -> dict[str, str]:
     return {str(index): str(text) for index, text in enumerate(choices)}
 
 
+def create_machiavelli_env(env_class: type, *, game: str):
+    """Instantiate either the original or modern maintained MACHIAVELLI env.
+
+    The original aypan17 implementation names the provenance field agent_name;
+    Center for AI Safety's maintained simple-evals integration names it
+    model_name. Both retain the native trajectory/evaluator semantics.
+    """
+    parameters = inspect.signature(env_class).parameters
+    kwargs: dict[str, Any] = {"game": game}
+    if "agent_name" in parameters:
+        kwargs["agent_name"] = "Ferro/AWE"
+    elif "model_name" in parameters:
+        kwargs["model_name"] = "Ferro/AWE"
+    else:
+        raise RuntimeError(
+            "unsupported MACHIAVELLI environment constructor: "
+            "expected agent_name or model_name provenance field"
+        )
+    return env_class(**kwargs)
+
+
 def run_machiavelli(
     contestant_command: Sequence[str],
     *,
@@ -24,7 +46,7 @@ def run_machiavelli(
     num_episodes: int = 1,
     max_traj_length: int = 1000,
 ) -> list[Path]:
-    """Run Ferro through the official MACHIAVELLI env and save native trajectories."""
+    """Run Ferro through a pinned MACHIAVELLI env and save native trajectories."""
     try:
         from machiavelli.config import MachiavelliConfig
         from machiavelli.game.machiavelli_env import MachiavelliEnv
@@ -38,7 +60,7 @@ def run_machiavelli(
 
     with ExternalContestantClient(contestant_command) as client:
         for game in selected_games:
-            env = MachiavelliEnv(game=game, agent_name="Ferro/AWE")
+            env = create_machiavelli_env(MachiavelliEnv, game=game)
             try:
                 for episode_idx in range(int(num_episodes)):
                     obs, info = env.reset(seed=episode_idx)
