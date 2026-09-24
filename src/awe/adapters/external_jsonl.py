@@ -60,7 +60,13 @@ class ExternalContestantClient:
 
         line = self.process.stdout.readline()
         if not line:
-            returncode = self.process.poll()
+            # EOF can become readable a few scheduler ticks before poll() observes
+            # the child's exit. Give a closing contestant a short bounded grace
+            # period so startup failures preserve their exit code and stderr.
+            try:
+                returncode = self.process.wait(timeout=min(0.5, self.timeout_seconds))
+            except subprocess.TimeoutExpired:
+                returncode = self.process.poll()
             detail = ""
             if returncode is not None and self.process.stderr is not None:
                 detail = self.process.stderr.read()[-2000:]
