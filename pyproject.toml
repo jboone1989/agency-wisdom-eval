@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agency-wisdom-eval"
+version = "0.1.0"
+description = "AWE: an open benchmark for applied intelligence, agency, judgment, and persistent adaptation in autonomous agents."
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+authors = [{name = "AWE Contributors"}]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-cov>=5"]
+
+[project.scripts]
+awe = "awe.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/awe"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
