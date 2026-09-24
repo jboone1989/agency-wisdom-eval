@@ -176,7 +176,7 @@ EXTERNAL_BENCHMARKS: tuple[ExternalBenchmarkSpec, ...] = (
         "Apollo/OpenAI-style Scheming Evaluations",
         IntegrationMode.REPRODUCTION,
         "https://www.apolloresearch.ai/research/scheming-reasoning-evaluations",
-        None,
+        "https://github.com/ApolloResearch/insider-trading.git",
         (
             "functional_tom", "information_control", "deception_capability",
             "deception_judgment", "goal_pursuit", "long_horizon", "self_model",
