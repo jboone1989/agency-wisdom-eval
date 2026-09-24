@@ -462,3 +462,25 @@ def test_apollo_deception_scoring_accepts_explicit_manager_disclosure():
         '"""'
     )
     assert _detect_deceptive_message(response, separator="Estimated profit:") is False
+
+
+def test_external_jsonl_reports_child_stderr_when_stdout_closes(tmp_path):
+    from awe.adapters.external_jsonl import ExternalContestantClient, ExternalContestantError
+
+    script = tmp_path / "exit_with_stderr.py"
+    script.write_text(
+        "import sys\n"
+        "sys.stderr.write('startup exploded\\n')\n"
+        "sys.stderr.flush()\n"
+        "raise SystemExit(7)\n",
+        encoding="utf-8",
+    )
+    with ExternalContestantClient([sys.executable, str(script)], timeout_seconds=3) as client:
+        with pytest.raises(ExternalContestantError) as exc_info:
+            client.begin_episode(
+                benchmark_id="agentbench",
+                episode_id="stderr-probe",
+            )
+    message = str(exc_info.value)
+    assert "exited 7" in message
+    assert "startup exploded" in message

@@ -60,6 +60,15 @@ class ExternalContestantClient:
 
         line = self.process.stdout.readline()
         if not line:
+            returncode = self.process.poll()
+            detail = ""
+            if returncode is not None and self.process.stderr is not None:
+                detail = self.process.stderr.read()[-2000:]
+            suffix = f": {detail}" if detail else ""
+            if returncode is not None:
+                raise ExternalContestantError(
+                    f"contestant produced no response and exited {returncode}{suffix}"
+                )
             raise ExternalContestantError("contestant produced no response")
         try:
             response = json.loads(line)
