@@ -68,6 +68,19 @@ Each scored decision records:
 - externally observed outcome;
 - per-domain score evidence.
 
+## 7. Infrastructure failures are not capability failures
+
+Provider outages, exhausted or unavailable model routes, contestant process crashes,
+protocol transport failures, and evaluator timeouts MUST NOT be scored as incorrect
+agent decisions. They are recorded as `INFRASTRUCTURE_ERROR`, contribute no domain
+score or opportunity, and make a formal claim run invalid until rerun cleanly.
+
+An invalid action emitted by an otherwise functioning contestant is different: it is a
+contestant behavior and remains `INVALID_ACTION`.
+
+Formal runners SHOULD persist one durable result record after every scenario so a long
+evaluation can resume or be audited after a lost control connection.
+
 ## 7. Public, regression and holdout material
 
 AWE separates:

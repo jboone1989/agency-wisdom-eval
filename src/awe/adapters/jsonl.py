@@ -3,10 +3,20 @@ from __future__ import annotations
 import json
 import subprocess
 import threading
-from dataclasses import asdict
 from typing import Sequence
 
 from ..models import AgentDecision, Scenario
+
+
+class ContestantExecutionError(RuntimeError):
+    """Contestant-side infrastructure/provider failure, distinct from a scored choice."""
+
+    def __init__(self, code: str, detail: str = "") -> None:
+        self.code = str(code or "contestant_error")
+        self.detail = str(detail or "")
+        super().__init__(
+            self.code + (": " + self.detail if self.detail else "")
+        )
 
 
 class JsonLineSubprocessAgent:
@@ -33,11 +43,15 @@ class JsonLineSubprocessAgent:
 
     def _roundtrip(self, payload: dict) -> dict:
         if self._process.poll() is not None:
-            raise RuntimeError(f"contestant process exited with code {self._process.returncode}")
+            raise ContestantExecutionError(
+                "process_exited", f"code={self._process.returncode}"
+            )
         if self._process.stdin is None or self._process.stdout is None:
-            raise RuntimeError("contestant pipes unavailable")
+            raise ContestantExecutionError("pipes_unavailable")
         with self._lock:
-            self._process.stdin.write(json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n")
+            self._process.stdin.write(
+                json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n"
+            )
             self._process.stdin.flush()
 
             result: dict | None = None
@@ -48,12 +62,14 @@ class JsonLineSubprocessAgent:
                 try:
                     line = self._process.stdout.readline()
                     if not line:
-                        raise RuntimeError("contestant closed stdout")
+                        raise ContestantExecutionError("stdout_closed")
                     parsed = json.loads(line)
                     if not isinstance(parsed, dict):
-                        raise RuntimeError("contestant response must be a JSON object")
+                        raise ContestantExecutionError(
+                            "protocol_error", "response must be a JSON object"
+                        )
                     result = parsed
-                except BaseException as exc:  # propagated in caller thread
+                except BaseException as exc:
                     error.append(exc)
 
             thread = threading.Thread(target=read_one, daemon=True)
@@ -61,10 +77,20 @@ class JsonLineSubprocessAgent:
             thread.join(self.timeout_seconds)
             if thread.is_alive():
                 self.close(kill=True)
-                raise TimeoutError(f"contestant exceeded {self.timeout_seconds}s response timeout")
+                raise ContestantExecutionError(
+                    "timeout", f"exceeded {self.timeout_seconds}s response timeout"
+                )
             if error:
-                raise RuntimeError("contestant protocol error") from error[0]
+                exc = error[0]
+                if isinstance(exc, ContestantExecutionError):
+                    raise exc
+                raise ContestantExecutionError("protocol_error", str(exc)) from exc
             assert result is not None
+            if result.get("ok") is False:
+                raise ContestantExecutionError(
+                    str(result.get("error") or "contestant_error"),
+                    str(result.get("detail") or "")[:1000],
+                )
             return result
 
     def begin_scenario(self, scenario: Scenario, persistent_state: dict) -> None:
@@ -78,9 +104,16 @@ class JsonLineSubprocessAgent:
             },
         })
         if reply.get("ok") is not True:
-            raise RuntimeError("contestant rejected scenario start")
+            raise ContestantExecutionError("scenario_start_rejected")
 
-    def decide(self, *, observation: str, actions: dict[str, str], public_world: dict, persistent_state: dict) -> AgentDecision:
+    def decide(
+        self,
+        *,
+        observation: str,
+        actions: dict[str, str],
+        public_world: dict,
+        persistent_state: dict,
+    ) -> AgentDecision:
         reply = self._roundtrip({
             "type": "decide",
             "observation": observation,
@@ -96,7 +129,14 @@ class JsonLineSubprocessAgent:
             declared_confidence=float(confidence) if isinstance(confidence, (int, float)) else None,
         )
 
-    def observe_outcome(self, *, action_id: str, outcome: str, public_world: dict, persistent_state: dict) -> None:
+    def observe_outcome(
+        self,
+        *,
+        action_id: str,
+        outcome: str,
+        public_world: dict,
+        persistent_state: dict,
+    ) -> None:
         reply = self._roundtrip({
             "type": "outcome",
             "action_id": action_id,
@@ -104,7 +144,7 @@ class JsonLineSubprocessAgent:
             "public_world": public_world,
         })
         if reply.get("ok") is not True:
-            raise RuntimeError("contestant rejected outcome")
+            raise ContestantExecutionError("outcome_rejected")
 
     def close(self, *, kill: bool = False) -> None:
         if self._process.poll() is not None:
@@ -126,3 +166,6 @@ class JsonLineSubprocessAgent:
 
     def __exit__(self, exc_type, exc, tb):
         self.close()
+
+
+__all__ = ["ContestantExecutionError", "JsonLineSubprocessAgent"]

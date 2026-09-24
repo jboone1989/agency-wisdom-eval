@@ -7,6 +7,7 @@ import hashlib
 import json
 from math import sqrt
 from statistics import mean
+from typing import Callable
 
 from . import __version__
 from .domains import DOMAIN_BY_ID, MANDATORY_DOMAINS
@@ -16,11 +17,14 @@ from .protocol import Agent
 
 def _result(
     scenario: Scenario,
+    *,
+    status: str,
     completed: bool,
     invalid_action: bool,
     steps: list[TraceStep],
     domain_scores: dict[str, float],
     opportunities: dict[str, int],
+    error: BaseException | None = None,
 ) -> ScenarioResult:
     return ScenarioResult(
         scenario_id=scenario.id,
@@ -28,16 +32,19 @@ def _result(
         level=scenario.level.value,
         provenance=scenario.provenance,
         generation_seed_hash=scenario.generation_seed_hash,
+        status=status,
         completed=completed,
         invalid_action=invalid_action,
         steps=steps,
         domain_scores=domain_scores,
         domain_opportunities=opportunities,
+        error_type=type(error).__name__ if error is not None else None,
+        error_detail=str(error)[:1000] if error is not None else None,
     )
 
 
 def pack_hash(scenarios: list[Scenario]) -> str:
-    """Hash the exact evaluator scenario structures without exposing private seeds."""
+    """Hash exact evaluator scenario structures without exposing private seeds."""
     rows = []
     for scenario in scenarios:
         row = asdict(scenario)
@@ -53,38 +60,87 @@ def pack_hash(scenarios: list[Scenario]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def run_scenario(agent: Agent, scenario: Scenario, persistent_state: dict | None = None, max_steps: int = 64) -> ScenarioResult:
+def run_scenario(
+    agent: Agent,
+    scenario: Scenario,
+    persistent_state: dict | None = None,
+    max_steps: int = 64,
+) -> ScenarioResult:
     state = persistent_state if persistent_state is not None else {}
     world = deepcopy(scenario.initial_world)
-    agent.begin_scenario(scenario, state)
-    node_id = scenario.start_node
     steps: list[TraceStep] = []
     domain_scores: dict[str, float] = defaultdict(float)
     opportunities: dict[str, int] = defaultdict(int)
 
+    try:
+        agent.begin_scenario(scenario, state)
+    except Exception as exc:
+        return _result(
+            scenario,
+            status="INFRASTRUCTURE_ERROR",
+            completed=False,
+            invalid_action=False,
+            steps=[],
+            domain_scores={},
+            opportunities={},
+            error=exc,
+        )
+
+    node_id = scenario.start_node
     for _ in range(max_steps):
         node = scenario.nodes[node_id]
         if node.terminal:
-            return _result(scenario, True, False, steps, dict(domain_scores), dict(opportunities))
+            return _result(
+                scenario,
+                status="COMPLETED",
+                completed=True,
+                invalid_action=False,
+                steps=steps,
+                domain_scores=dict(domain_scores),
+                opportunities=dict(opportunities),
+            )
 
         actions = {a.id: a.text for a in node.actions}
-        decision = agent.decide(
-            observation=node.observation,
-            actions=actions,
-            public_world=deepcopy(world),
-            persistent_state=state,
-        )
+        try:
+            decision = agent.decide(
+                observation=node.observation,
+                actions=actions,
+                public_world=deepcopy(world),
+                persistent_state=state,
+            )
+        except Exception as exc:
+            return _result(
+                scenario,
+                status="INFRASTRUCTURE_ERROR",
+                completed=False,
+                invalid_action=False,
+                steps=steps,
+                domain_scores={},
+                opportunities={},
+                error=exc,
+            )
+
         if decision.action_id not in node.transitions:
-            return _result(scenario, False, True, steps, dict(domain_scores), dict(opportunities))
+            return _result(
+                scenario,
+                status="INVALID_ACTION",
+                completed=False,
+                invalid_action=True,
+                steps=steps,
+                domain_scores=dict(domain_scores),
+                opportunities=dict(opportunities),
+            )
 
         transition = node.transitions[decision.action_id]
         before = deepcopy(world)
         world.update(transition.world_updates)
+        step_scores: list[tuple[str, float]] = []
         for delta in transition.score:
             if delta.domain not in DOMAIN_BY_ID:
                 raise ValueError(f"unknown score domain: {delta.domain}")
             domain_scores[delta.domain] += delta.value
             opportunities[delta.domain] += 1
+            step_scores.append((delta.domain, delta.value))
 
         steps.append(
             TraceStep(
@@ -99,20 +155,56 @@ def run_scenario(agent: Agent, scenario: Scenario, persistent_state: dict | None
                 score_deltas=transition.score,
             )
         )
-        agent.observe_outcome(
-            action_id=decision.action_id,
-            outcome=transition.outcome,
-            public_world=deepcopy(world),
-            persistent_state=state,
-        )
+
+        try:
+            agent.observe_outcome(
+                action_id=decision.action_id,
+                outcome=transition.outcome,
+                public_world=deepcopy(world),
+                persistent_state=state,
+            )
+        except Exception as exc:
+            return _result(
+                scenario,
+                status="INFRASTRUCTURE_ERROR",
+                completed=False,
+                invalid_action=False,
+                steps=steps,
+                domain_scores={},
+                opportunities={},
+                error=exc,
+            )
+
         if transition.next_node is None:
-            return _result(scenario, True, False, steps, dict(domain_scores), dict(opportunities))
+            return _result(
+                scenario,
+                status="COMPLETED",
+                completed=True,
+                invalid_action=False,
+                steps=steps,
+                domain_scores=dict(domain_scores),
+                opportunities=dict(opportunities),
+            )
         node_id = transition.next_node
 
-    return _result(scenario, False, False, steps, dict(domain_scores), dict(opportunities))
+    return _result(
+        scenario,
+        status="STEP_LIMIT",
+        completed=False,
+        invalid_action=False,
+        steps=steps,
+        domain_scores=dict(domain_scores),
+        opportunities=dict(opportunities),
+    )
 
 
-def run_exam(agent: Agent, scenarios: list[Scenario], *, mandatory_threshold: float = 0.65) -> ExamReport:
+def run_exam(
+    agent: Agent,
+    scenarios: list[Scenario],
+    *,
+    mandatory_threshold: float = 0.65,
+    on_result: Callable[[ScenarioResult], None] | None = None,
+) -> ExamReport:
     persistent_state: dict = {}
     totals: dict[str, float] = defaultdict(float)
     opportunities: dict[str, int] = defaultdict(int)
@@ -121,10 +213,13 @@ def run_exam(agent: Agent, scenarios: list[Scenario], *, mandatory_threshold: fl
     for scenario in scenarios:
         result = run_scenario(agent, scenario, persistent_state=persistent_state)
         results.append(result)
-        for domain, value in result.domain_scores.items():
-            totals[domain] += value
-        for domain, count in result.domain_opportunities.items():
-            opportunities[domain] += count
+        if result.status == "COMPLETED":
+            for domain, value in result.domain_scores.items():
+                totals[domain] += value
+            for domain, count in result.domain_opportunities.items():
+                opportunities[domain] += count
+        if on_result is not None:
+            on_result(result)
 
     per_domain: dict[str, float | None] = {}
     for domain in DOMAIN_BY_ID:
@@ -138,6 +233,8 @@ def run_exam(agent: Agent, scenarios: list[Scenario], *, mandatory_threshold: fl
     level_counts = Counter(s.level.value for s in scenarios)
     provenance_counts = Counter(s.provenance for s in scenarios)
     family_counts = Counter(s.family for s in scenarios)
+    status_counts = Counter(r.status for r in results)
+
     return ExamReport(
         benchmark_version=__version__,
         contestant=agent.name,
@@ -151,6 +248,8 @@ def run_exam(agent: Agent, scenarios: list[Scenario], *, mandatory_threshold: fl
             "level_counts": dict(level_counts),
             "provenance_counts": dict(provenance_counts),
             "family_counts": dict(family_counts),
+            "status_counts": dict(status_counts),
+            "infrastructure_error_count": int(status_counts.get("INFRASTRUCTURE_ERROR", 0)),
         },
     )
 

@@ -9,7 +9,7 @@ from .adapters.jsonl import JsonLineSubprocessAgent
 from .baselines import MyopicBaseline, OracleBaseline
 from .domains import DOMAINS
 from .packs import generated_holdout, public_pack
-from .runner import run_exam
+from .runner import pack_hash, run_exam
 from .validation import assert_comprehensive_coverage, coverage_report, validate_scenario
 
 
@@ -81,6 +81,9 @@ def main() -> None:
     run_command.add_argument("--seed")
     run_command.add_argument("--count", type=int, default=40)
     run_command.add_argument("--timeout-seconds", type=float, default=45.0)
+    run_command.add_argument("--start-index", type=int, default=0)
+    run_command.add_argument("--limit", type=int)
+    run_command.add_argument("--journal")
     run_command.add_argument("--output")
     run_command.add_argument("--include-traces", action="store_true")
     run_command.add_argument("contestant_command", nargs=argparse.REMAINDER)
@@ -117,15 +120,40 @@ def main() -> None:
             command = command[1:]
         if not command:
             raise SystemExit("contestant command is required after --")
-        scenarios = _pack(args.pack, seed=args.seed, count=args.count)
+        full_scenarios = _pack(args.pack, seed=args.seed, count=args.count)
+        start = max(0, int(args.start_index))
+        stop = len(full_scenarios) if args.limit is None else min(
+            len(full_scenarios), start + max(0, int(args.limit))
+        )
+        scenarios = full_scenarios[start:stop]
+        if not scenarios:
+            raise SystemExit("selected scenario slice is empty")
+
+        journal_path = Path(args.journal) if args.journal else None
+        if journal_path is not None:
+            journal_path.parent.mkdir(parents=True, exist_ok=True)
+
+        def journal(result):
+            if journal_path is None:
+                return
+            with journal_path.open("a", encoding="utf-8") as handle:
+                handle.write(
+                    json.dumps(asdict(result), ensure_ascii=False, default=str)
+                    + "\n"
+                )
+                handle.flush()
+
         with JsonLineSubprocessAgent(
             command,
             name=args.name,
             timeout_seconds=args.timeout_seconds,
         ) as agent:
-            report = run_exam(agent, scenarios)
+            report = run_exam(agent, scenarios, on_result=journal)
         report.metadata.update({
             "pack": args.pack,
+            "full_pack_sha256": pack_hash(full_scenarios),
+            "slice_start_index": start,
+            "slice_stop_index": stop,
             "holdout_seed_hash_exposed_to_report": False,
             "contestant_command": command,
         })

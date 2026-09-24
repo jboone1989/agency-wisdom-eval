@@ -78,11 +78,14 @@ class ScenarioResult:
     level: str
     provenance: str
     generation_seed_hash: str | None
+    status: str
     completed: bool
     invalid_action: bool
     steps: list[TraceStep]
     domain_scores: dict[str, float]
     domain_opportunities: dict[str, int]
+    error_type: str | None = None
+    error_detail: str | None = None
 
 
 @dataclass

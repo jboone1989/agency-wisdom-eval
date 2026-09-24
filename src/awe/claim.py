@@ -37,6 +37,17 @@ def evaluate_claim(reports: list[ExamReport], policy: WisdomClaimPolicy = Wisdom
         if not str(report.metadata.get("pack_sha256") or ""):
             reasons.append(f"run {run_index}: missing pack hash")
 
+        infrastructure_errors = int(report.metadata.get("infrastructure_error_count") or 0)
+        if infrastructure_errors:
+            reasons.append(
+                f"run {run_index}: {infrastructure_errors} infrastructure errors make the run non-claimable"
+            )
+
+        status_counts = report.metadata.get("status_counts")
+        status_counts = status_counts if isinstance(status_counts, dict) else {}
+        if int(status_counts.get("COMPLETED") or 0) != report.scenario_count:
+            reasons.append(f"run {run_index}: not all scenarios completed cleanly")
+
         level_counts = report.metadata.get("level_counts")
         level_counts = level_counts if isinstance(level_counts, dict) else {}
         missing_levels = [level for level in policy.required_levels if int(level_counts.get(level) or 0) <= 0]
