@@ -74,6 +74,10 @@ class TraceStep:
 @dataclass
 class ScenarioResult:
     scenario_id: str
+    family: str
+    level: str
+    provenance: str
+    generation_seed_hash: str | None
     completed: bool
     invalid_action: bool
     steps: list[TraceStep]

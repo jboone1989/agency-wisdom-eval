@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from copy import deepcopy
+from dataclasses import asdict
+import hashlib
+import json
 from math import sqrt
 from statistics import mean
 
@@ -9,6 +12,45 @@ from . import __version__
 from .domains import DOMAIN_BY_ID, MANDATORY_DOMAINS
 from .models import ExamReport, Scenario, ScenarioResult, TraceStep
 from .protocol import Agent
+
+
+def _result(
+    scenario: Scenario,
+    completed: bool,
+    invalid_action: bool,
+    steps: list[TraceStep],
+    domain_scores: dict[str, float],
+    opportunities: dict[str, int],
+) -> ScenarioResult:
+    return ScenarioResult(
+        scenario_id=scenario.id,
+        family=scenario.family,
+        level=scenario.level.value,
+        provenance=scenario.provenance,
+        generation_seed_hash=scenario.generation_seed_hash,
+        completed=completed,
+        invalid_action=invalid_action,
+        steps=steps,
+        domain_scores=domain_scores,
+        domain_opportunities=opportunities,
+    )
+
+
+def pack_hash(scenarios: list[Scenario]) -> str:
+    """Hash the exact evaluator scenario structures without exposing private seeds."""
+    rows = []
+    for scenario in scenarios:
+        row = asdict(scenario)
+        row.pop("generation_seed_hash", None)
+        rows.append(row)
+    encoded = json.dumps(
+        rows,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def run_scenario(agent: Agent, scenario: Scenario, persistent_state: dict | None = None, max_steps: int = 64) -> ScenarioResult:
@@ -23,7 +65,7 @@ def run_scenario(agent: Agent, scenario: Scenario, persistent_state: dict | None
     for _ in range(max_steps):
         node = scenario.nodes[node_id]
         if node.terminal:
-            return ScenarioResult(scenario.id, True, False, steps, dict(domain_scores), dict(opportunities))
+            return _result(scenario, True, False, steps, dict(domain_scores), dict(opportunities))
 
         actions = {a.id: a.text for a in node.actions}
         decision = agent.decide(
@@ -33,7 +75,7 @@ def run_scenario(agent: Agent, scenario: Scenario, persistent_state: dict | None
             persistent_state=state,
         )
         if decision.action_id not in node.transitions:
-            return ScenarioResult(scenario.id, False, True, steps, dict(domain_scores), dict(opportunities))
+            return _result(scenario, False, True, steps, dict(domain_scores), dict(opportunities))
 
         transition = node.transitions[decision.action_id]
         before = deepcopy(world)
@@ -64,10 +106,10 @@ def run_scenario(agent: Agent, scenario: Scenario, persistent_state: dict | None
             persistent_state=state,
         )
         if transition.next_node is None:
-            return ScenarioResult(scenario.id, True, False, steps, dict(domain_scores), dict(opportunities))
+            return _result(scenario, True, False, steps, dict(domain_scores), dict(opportunities))
         node_id = transition.next_node
 
-    return ScenarioResult(scenario.id, False, False, steps, dict(domain_scores), dict(opportunities))
+    return _result(scenario, False, False, steps, dict(domain_scores), dict(opportunities))
 
 
 def run_exam(agent: Agent, scenarios: list[Scenario], *, mandatory_threshold: float = 0.65) -> ExamReport:
@@ -93,6 +135,9 @@ def run_exam(agent: Agent, scenarios: list[Scenario], *, mandatory_threshold: fl
         d: (per_domain[d] is not None and per_domain[d] >= mandatory_threshold)
         for d in MANDATORY_DOMAINS
     }
+    level_counts = Counter(s.level.value for s in scenarios)
+    provenance_counts = Counter(s.provenance for s in scenarios)
+    family_counts = Counter(s.family for s in scenarios)
     return ExamReport(
         benchmark_version=__version__,
         contestant=agent.name,
@@ -101,6 +146,12 @@ def run_exam(agent: Agent, scenarios: list[Scenario], *, mandatory_threshold: fl
         opportunities=dict(opportunities),
         mandatory_pass=mandatory_pass,
         traces=results,
+        metadata={
+            "pack_sha256": pack_hash(scenarios),
+            "level_counts": dict(level_counts),
+            "provenance_counts": dict(provenance_counts),
+            "family_counts": dict(family_counts),
+        },
     )
 
 
