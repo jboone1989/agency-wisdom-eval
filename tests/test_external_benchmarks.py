@@ -34,7 +34,7 @@ def test_registry_contains_mature_external_benchmarks():
     assert modes["gaia"] is IntegrationMode.GATED
     assert modes["apollo-scheming"] is IntegrationMode.REPRODUCTION
     assert modes["machiavelli"] is IntegrationMode.OFFICIAL
-    assert modes["osworld"] is IntegrationMode.OFFICIAL
+    assert modes["osworld"] is IntegrationMode.GATED
 
 
 def test_external_evidence_is_hashed_and_round_trips(tmp_path: Path):
@@ -91,3 +91,23 @@ def test_profile_maps_external_evidence_without_inventing_awe_scores(tmp_path: P
     planning = next(row for row in profile.domains if row.domain == "planning")
     assert "osworld" in planning.external_benchmarks
     assert not planning.internal_measured
+
+
+def test_every_external_benchmark_has_an_upstream_runner_plan():
+    from awe.upstream import UPSTREAM_RUNNER_PLAN_BY_ID
+
+    assert set(UPSTREAM_RUNNER_PLAN_BY_ID) == EXPECTED
+    assert "generate_trajectories" in " ".join(
+        UPSTREAM_RUNNER_PLAN_BY_ID["machiavelli"].run_entrypoints
+    )
+    assert "sotopia benchmark" in " ".join(
+        UPSTREAM_RUNNER_PLAN_BY_ID["sotopia"].run_entrypoints
+    )
+    assert "osworld_v2_tasks" in " ".join(
+        UPSTREAM_RUNNER_PLAN_BY_ID["osworld"].access_requirements
+        + UPSTREAM_RUNNER_PLAN_BY_ID["osworld"].setup_entrypoints
+    )
+    assert "GAIA" in " ".join(
+        UPSTREAM_RUNNER_PLAN_BY_ID["gaia"].access_requirements
+        + UPSTREAM_RUNNER_PLAN_BY_ID["gaia"].setup_entrypoints
+    )

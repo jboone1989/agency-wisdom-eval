@@ -31,7 +31,7 @@ Every imported external result records:
 | `machiavelli` | MACHIAVELLI | official | reward pursuit, power/status, deception, long-horizon side effects |
 | `sotopia` | SOTOPIA | official | social reasoning, negotiation, cooperation/competition |
 | `lifelong-sotopia` | Lifelong-SOTOPIA | official | persistent relationships, reciprocity, longitudinal social adaptation |
-| `osworld` | OSWorld / OSWorld 2.x | official | real-computer grounding, planning, recovery, execution |
+| `osworld` | OSWorld / OSWorld 2.x | gated | real-computer grounding, planning, recovery, execution |
 | `agentbench` | AgentBench | official | heterogeneous interactive agent competence |
 | `gaia` | GAIA | gated | real-world assistant/tool-use competence |
 | `metr-task-standard` | METR Task Standard | official | versioned long-horizon task execution |
@@ -97,3 +97,23 @@ Formal AWE claims should therefore report both:
 
 1. native AWE scenario evidence under the AWE claim policy; and
 2. external mature-benchmark evidence with upstream-native metrics and provenance.
+
+
+## Upstream runner plans
+
+AWE also ships versionable upstream execution plans in
+`awe.upstream.UPSTREAM_RUNNER_PLANS`. These plans point to upstream entrypoints
+rather than copying evaluator logic. They currently cover:
+
+- MACHIAVELLI trajectory generation plus `evaluate_trajectories`;
+- SOTOPIA's native `sotopia benchmark` path and custom-agent hook;
+- Lifelong-SOTOPIA longitudinal state preservation;
+- OSWorld 2.1 release-pinned code, gated tasks/assets and multi-environment runners;
+- THUDM AgentBench's task-controller/assigner workflow;
+- GAIA through an authorized dataset copy, preferably via METR Task Standard's adaptor;
+- METR Task Standard's task/agent/score workbench contract;
+- METR Time Horizon's versioned report/DVC analysis;
+- explicitly non-official Apollo/OpenAI-style scheming reproductions.
+
+These are execution/provenance adapters, not copied benchmark implementations.
+The upstream project remains authoritative for task definitions and native scoring.

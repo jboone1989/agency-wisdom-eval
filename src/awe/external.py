@@ -110,7 +110,7 @@ EXTERNAL_BENCHMARKS: tuple[ExternalBenchmarkSpec, ...] = (
     _spec(
         "osworld",
         "OSWorld / OSWorld 2.x",
-        IntegrationMode.OFFICIAL,
+        IntegrationMode.GATED,
         "https://os-world.github.io/",
         "https://github.com/xlang-ai/OSWorld-V2.git",
         (

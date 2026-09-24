@@ -6,6 +6,7 @@ from .domains import DOMAINS, DomainSpec, ExamLevel
 from .external import EXTERNAL_BENCHMARKS, ExternalBenchmarkSpec, ExternalEvidence, IntegrationMode
 from .models import AgentDecision, ExamReport, Scenario
 from .profile import AgencyEvidenceProfile, DomainEvidence
+from .upstream import UPSTREAM_RUNNER_PLANS, UpstreamRunnerPlan
 
 __all__ = [
     "DOMAINS",
@@ -20,4 +21,6 @@ __all__ = [
     "IntegrationMode",
     "AgencyEvidenceProfile",
     "DomainEvidence",
+    "UPSTREAM_RUNNER_PLANS",
+    "UpstreamRunnerPlan",
 ]
