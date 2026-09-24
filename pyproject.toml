@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agency-wisdom-eval"
-version = "0.1.0"
+version = "0.2.0"
 description = "AWE: an open benchmark for applied intelligence, agency, judgment, and persistent adaptation in autonomous agents."
 readme = "README.md"
 requires-python = ">=3.11"

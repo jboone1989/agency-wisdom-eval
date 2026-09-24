@@ -79,3 +79,18 @@ A formal claim should include:
 ## Status
 
 The repository contains the normative architecture, executable scenario engine, public scenario families spanning the full domain registry, deterministic hidden generation, objective outcome scoring, baseline agents, and validation tests. External benchmark adapters and richer environments can be added without changing the core protocol.
+
+
+## Mature external benchmark evidence
+
+AWE treats mature external benchmarks as first-class evidence rather than replacing
+them with simplified local copies. The current external registry covers MACHIAVELLI,
+SOTOPIA / Lifelong-SOTOPIA, OSWorld, AgentBench, GAIA, METR Task Standard,
+METR Time Horizon, and an explicitly labelled Apollo/OpenAI-style scheming
+**reproduction** integration.
+
+AWE preserves each benchmark's native evaluator and metrics, adds provenance and
+artifact hashing, and maps the evidence to AWE capability domains without inventing
+a cross-benchmark common score.
+
+See [docs/EXTERNAL_BENCHMARKS.md](docs/EXTERNAL_BENCHMARKS.md).
