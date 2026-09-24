@@ -31,7 +31,7 @@ def action_tools(available_actions: Sequence[str]) -> list[dict[str, Any]]:
 def build_sotopia_agent_class(
     contestant_command: Sequence[str],
     *,
-    timeout_seconds: float = 90.0,
+    timeout_seconds: float = 180.0,
 ):
     """Return an upstream-compatible SOTOPIA BaseAgent subclass backed by Ferro."""
     try:
@@ -149,7 +149,7 @@ def run_sotopia_benchmark(
     push_to_db: bool = False,
     save_dir: str = ".",
     tag: str = "",
-    timeout_seconds: float = 90.0,
+    timeout_seconds: float = 180.0,
 ) -> None:
     """Run the upstream SOTOPIA benchmark with Ferro as the test agent."""
     try:
@@ -181,7 +181,7 @@ def run_sotopia_benchmark(
 def build_lifelong_sotopia_reproduction_agent_class(
     contestant_command: Sequence[str],
     *,
-    timeout_seconds: float = 90.0,
+    timeout_seconds: float = 180.0,
 ):
     """Build a persistent-state SOTOPIA agent for Lifelong-SOTOPIA reproduction.
 

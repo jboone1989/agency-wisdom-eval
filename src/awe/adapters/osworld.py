@@ -53,7 +53,7 @@ class FerroOSWorldAgent:
         contestant_command: Sequence[str],
         *,
         observation_type: str = "a11y_tree",
-        timeout_seconds: float = 90.0,
+        timeout_seconds: float = 180.0,
     ) -> None:
         if observation_type not in {"a11y_tree", "screenshot_a11y_tree"}:
             raise ValueError(

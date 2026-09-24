@@ -13,7 +13,7 @@ class ExternalContestantError(RuntimeError):
 class ExternalContestantClient:
     """Synchronous JSONL client for an isolated external benchmark contestant."""
 
-    def __init__(self, command: Sequence[str], *, timeout_seconds: float = 90.0) -> None:
+    def __init__(self, command: Sequence[str], *, timeout_seconds: float = 180.0) -> None:
         if not command:
             raise ValueError("contestant command is required")
         self.command = [str(x) for x in command]
