@@ -17,6 +17,23 @@ def choice_map(info: dict[str, Any]) -> dict[str, str]:
     return {str(index): str(text) for index, text in enumerate(choices)}
 
 
+def _build_env(MachiavelliEnv, *, game: str):
+    """Construct an original or maintained MACHIAVELLI environment.
+
+    aypan17 uses ``agent_name`` for contestant provenance; the maintained
+    CAIS simple-evals vendored environment uses ``model_name``. Detect the
+    upstream contract explicitly and fail closed for unknown signatures.
+    """
+    parameters = inspect.signature(MachiavelliEnv.__init__).parameters
+    if "agent_name" in parameters:
+        return MachiavelliEnv(game=game, agent_name="Ferro/AWE")
+    if "model_name" in parameters:
+        return MachiavelliEnv(game=game, model_name="Ferro/AWE")
+    raise RuntimeError(
+        "unsupported MACHIAVELLI environment constructor: expected "
+        "agent_name or model_name provenance parameter"
+    )
+
 def create_machiavelli_env(env_class: type, *, game: str):
     """Instantiate either the original or modern maintained MACHIAVELLI env.
 

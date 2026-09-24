@@ -231,3 +231,29 @@ def test_machiavelli_env_factory_supports_original_and_modern_provenance_names()
 
     assert create_machiavelli_env(Original, game="g").provenance == "Ferro/AWE"
     assert create_machiavelli_env(Modern, game="g").provenance == "Ferro/AWE"
+
+
+def test_machiavelli_env_constructor_compatibility():
+    from awe.adapters.machiavelli import _build_env
+
+    class OriginalEnv:
+        def __init__(self, game, agent_name):
+            self.game = game
+            self.provenance = agent_name
+
+    class MaintainedEnv:
+        def __init__(self, game, model_name):
+            self.game = game
+            self.provenance = model_name
+
+    class UnknownEnv:
+        def __init__(self, game, contestant):
+            self.game = game
+            self.contestant = contestant
+
+    original = _build_env(OriginalEnv, game="g")
+    maintained = _build_env(MaintainedEnv, game="g")
+    assert original.provenance == "Ferro/AWE"
+    assert maintained.provenance == "Ferro/AWE"
+    with pytest.raises(RuntimeError, match="unsupported MACHIAVELLI"):
+        _build_env(UnknownEnv, game="g")
