@@ -112,3 +112,12 @@ def test_every_external_benchmark_has_an_upstream_runner_plan():
         UPSTREAM_RUNNER_PLAN_BY_ID["gaia"].access_requirements
         + UPSTREAM_RUNNER_PLAN_BY_ID["gaia"].setup_entrypoints
     )
+
+
+def test_gaia_source_is_not_accidentally_apollo():
+    from awe.external import EXTERNAL_BENCHMARK_BY_ID
+    from awe.upstream import UPSTREAM_RUNNER_PLAN_BY_ID
+
+    assert EXTERNAL_BENCHMARK_BY_ID["gaia"].repository is None
+    assert UPSTREAM_RUNNER_PLAN_BY_ID["gaia"].repository is None
+    assert "ApolloResearch" not in str(UPSTREAM_RUNNER_PLAN_BY_ID["gaia"].repository)

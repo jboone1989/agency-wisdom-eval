@@ -88,7 +88,7 @@ UPSTREAM_RUNNER_PLANS: tuple[UpstreamRunnerPlan, ...] = (
     ),
     UpstreamRunnerPlan(
         benchmark_id="gaia",
-        repository="https://github.com/ApolloResearch/insider-trading.git",
+        repository=None,
         access_requirements=(
             "accept the GAIA Hugging Face gated dataset terms",
             "do not redistribute validation/test material outside gated/private storage",
