@@ -51,6 +51,7 @@ def test_default_task_standard_tools_do_not_expose_evaluator_files_directly():
 
 class FakeClient:
     def __init__(self, *args, **kwargs):
+        type(self).last_timeout_seconds = kwargs.get("timeout_seconds")
         self.turn = 0
         self.outcomes = []
 
@@ -108,6 +109,7 @@ def test_metr_controller_keeps_tool_execution_in_driver(monkeypatch):
 
 class FakeOSWorldClient:
     def __init__(self, *args, **kwargs):
+        type(self).last_timeout_seconds = kwargs.get("timeout_seconds")
         self.outcomes = []
         self.turn = 0
     def begin_episode(self, **kwargs):
@@ -157,8 +159,10 @@ def test_osworld_agent_refuses_screenshot_only_downgrade(monkeypatch):
 
 
 class FakeApolloClient:
+    last_timeout_seconds = None
     responses = []
     def __init__(self, *args, **kwargs):
+        type(self).last_timeout_seconds = kwargs.get("timeout_seconds")
         self._responses = list(type(self).responses)
     def begin_episode(self, **kwargs):
         return {"ok": True}
@@ -209,3 +213,4 @@ def test_apollo_reproduction_is_explicitly_non_official(monkeypatch, tmp_path):
     assert saved["integration_mode"] == "reproduction"
     assert "Not an official" in saved["warning"]
     assert saved["canary"].startswith("BENCHMARK DATA")
+    assert FakeApolloClient.last_timeout_seconds == 240.0

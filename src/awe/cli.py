@@ -240,6 +240,7 @@ def main() -> None:
     apollo = sub.add_parser("run-apollo-reproduction")
     apollo.add_argument("--prompt", required=True)
     apollo.add_argument("--artifact", required=True)
+    apollo.add_argument("--timeout-seconds", type=float, default=240.0)
     apollo.add_argument("contestant_command", nargs=argparse.REMAINDER)
 
     run_public = sub.add_parser("run-public")
@@ -347,6 +348,7 @@ def main() -> None:
             _contestant_command(args.contestant_command),
             prompt_path=args.prompt,
             artifact_path=args.artifact,
+            timeout_seconds=args.timeout_seconds,
         )
         print(json.dumps(asdict(result), ensure_ascii=False, indent=2))
         return

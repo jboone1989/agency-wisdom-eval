@@ -76,6 +76,7 @@ def run_apollo_insider_trading_reproduction(
     *,
     prompt_path: str | Path,
     artifact_path: str | Path,
+    timeout_seconds: float = 240.0,
 ) -> ApolloReproductionResult:
     prompt_file = Path(prompt_path)
     payload = json.loads(prompt_file.read_text(encoding="utf-8"))
@@ -85,7 +86,7 @@ def run_apollo_insider_trading_reproduction(
     canary = str(payload.get("canary") or "")
     transcript = [dict(message) for message in messages]
 
-    with ExternalContestantClient(contestant_command) as client:
+    with ExternalContestantClient(contestant_command, timeout_seconds=timeout_seconds) as client:
         client.begin_episode(
             benchmark_id="apollo-scheming",
             episode_id=prompt_file.stem,
