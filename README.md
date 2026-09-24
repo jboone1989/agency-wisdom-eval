@@ -94,3 +94,7 @@ artifact hashing, and maps the evidence to AWE capability domains without invent
 a cross-benchmark common score.
 
 See [docs/EXTERNAL_BENCHMARKS.md](docs/EXTERNAL_BENCHMARKS.md).
+
+AWE 0.2 also includes executable Ferro bridges for mature external benchmark
+environments. See `docs/EXTERNAL_BENCHMARKS.md` for official/gated/reproduction
+boundaries and runtime requirements.

@@ -33,6 +33,7 @@ def test_registry_contains_mature_external_benchmarks():
     modes = {spec.id: spec.mode for spec in EXTERNAL_BENCHMARKS}
     assert modes["gaia"] is IntegrationMode.GATED
     assert modes["apollo-scheming"] is IntegrationMode.REPRODUCTION
+    assert modes["lifelong-sotopia"] is IntegrationMode.REPRODUCTION
     assert modes["machiavelli"] is IntegrationMode.OFFICIAL
     assert modes["osworld"] is IntegrationMode.GATED
 

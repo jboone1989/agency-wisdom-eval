@@ -6,7 +6,10 @@ import json
 from pathlib import Path
 import subprocess
 
+from .adapters.apollo_scheming import run_apollo_insider_trading_reproduction
 from .adapters.jsonl import JsonLineSubprocessAgent
+from .adapters.machiavelli import run_machiavelli
+from .adapters.sotopia import run_sotopia_benchmark
 from .baselines import MyopicBaseline, OracleBaseline
 from .domains import DOMAINS
 from .external import (
@@ -20,6 +23,14 @@ from .external import (
 )
 from .packs import generated_holdout, public_pack
 from .runner import pack_hash, run_exam
+from .upstream import get_upstream_runner_plan
+from .upstream_contracts import (
+    verify_apollo_insider_checkout,
+    verify_machiavelli_checkout,
+    verify_metr_task_standard_checkout,
+    verify_osworld_checkout,
+    verify_sotopia_checkout,
+)
 from .validation import assert_comprehensive_coverage, coverage_report, validate_scenario
 
 
@@ -83,6 +94,15 @@ def _parse_metrics(values: list[str]) -> dict[str, object]:
     return metrics
 
 
+def _contestant_command(raw: list[str]) -> list[str]:
+    command = list(raw)
+    if command and command[0] == "--":
+        command = command[1:]
+    if not command:
+        raise SystemExit("contestant command is required after --")
+    return command
+
+
 def _external_record(args) -> int:
     evidence = build_external_evidence(
         benchmark_id=args.benchmark,
@@ -106,11 +126,7 @@ def _external_record(args) -> int:
 
 
 def _external_run(args) -> int:
-    command = list(args.runner_command)
-    if command and command[0] == "--":
-        command = command[1:]
-    if not command:
-        raise SystemExit("external runner command is required after --")
+    command = _contestant_command(args.runner_command)
     completed = subprocess.run(
         command,
         cwd=args.runner_cwd,
@@ -141,6 +157,25 @@ def _external_run(args) -> int:
     return 0
 
 
+def _external_doctor(args) -> int:
+    checks = []
+    if args.machiavelli:
+        checks.append(verify_machiavelli_checkout(args.machiavelli))
+    if args.sotopia:
+        checks.append(verify_sotopia_checkout(args.sotopia))
+    if args.osworld:
+        checks.append(verify_osworld_checkout(args.osworld))
+    if args.metr_task_standard:
+        checks.append(verify_metr_task_standard_checkout(args.metr_task_standard))
+    if args.apollo:
+        checks.append(verify_apollo_insider_checkout(args.apollo))
+    if not checks:
+        raise SystemExit("provide at least one upstream checkout path")
+    payload = {"ok": all(item.ok for item in checks), "checks": [asdict(item) for item in checks]}
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    return 0 if payload["ok"] else 1
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="awe", description="Agency & Wisdom Evaluation")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -154,8 +189,18 @@ def main() -> None:
     external_show = sub.add_parser("external-show")
     external_show.add_argument("benchmark", choices=[spec.id for spec in EXTERNAL_BENCHMARKS])
 
+    external_plan = sub.add_parser("external-plan")
+    external_plan.add_argument("benchmark", choices=[spec.id for spec in EXTERNAL_BENCHMARKS])
+
     external_verify = sub.add_parser("external-verify")
     external_verify.add_argument("evidence")
+
+    doctor = sub.add_parser("external-doctor")
+    doctor.add_argument("--machiavelli")
+    doctor.add_argument("--sotopia")
+    doctor.add_argument("--osworld")
+    doctor.add_argument("--metr-task-standard", dest="metr_task_standard")
+    doctor.add_argument("--apollo")
 
     for name in ("external-record", "external-run"):
         cmd = sub.add_parser(name)
@@ -173,6 +218,29 @@ def main() -> None:
             cmd.add_argument("runner_command", nargs=argparse.REMAINDER)
         else:
             cmd.set_defaults(runner_command=[])
+
+    mach = sub.add_parser("run-machiavelli")
+    mach.add_argument("--traj-dir", required=True)
+    mach.add_argument("--game", action="append", default=[])
+    mach.add_argument("--num-episodes", type=int, default=1)
+    mach.add_argument("--max-traj-length", type=int, default=1000)
+    mach.add_argument("contestant_command", nargs=argparse.REMAINDER)
+
+    sotopia = sub.add_parser("run-sotopia")
+    sotopia.add_argument("--partner-model", required=True)
+    sotopia.add_argument("--evaluator-model", required=True)
+    sotopia.add_argument("--batch-size", type=int, default=10)
+    sotopia.add_argument("--task", default="hard")
+    sotopia.add_argument("--url", default="")
+    sotopia.add_argument("--save-dir", required=True)
+    sotopia.add_argument("--tag", default="")
+    sotopia.add_argument("--timeout-seconds", type=float, default=90.0)
+    sotopia.add_argument("contestant_command", nargs=argparse.REMAINDER)
+
+    apollo = sub.add_parser("run-apollo-reproduction")
+    apollo.add_argument("--prompt", required=True)
+    apollo.add_argument("--artifact", required=True)
+    apollo.add_argument("contestant_command", nargs=argparse.REMAINDER)
 
     run_public = sub.add_parser("run-public")
     run_public.add_argument("--agent", choices=["oracle", "myopic"], default="oracle")
@@ -226,6 +294,13 @@ def main() -> None:
         print(json.dumps(asdict(get_external_benchmark(args.benchmark)), ensure_ascii=False, indent=2))
         return
 
+    if args.command == "external-plan":
+        print(json.dumps(asdict(get_upstream_runner_plan(args.benchmark)), ensure_ascii=False, indent=2))
+        return
+
+    if args.command == "external-doctor":
+        raise SystemExit(_external_doctor(args))
+
     if args.command == "external-verify":
         evidence = evidence_from_json(args.evidence)
         reasons = list(validate_external_evidence(evidence))
@@ -241,6 +316,40 @@ def main() -> None:
 
     if args.command == "external-run":
         raise SystemExit(_external_run(args))
+
+    if args.command == "run-machiavelli":
+        outputs = run_machiavelli(
+            _contestant_command(args.contestant_command),
+            traj_dir=args.traj_dir,
+            games=args.game or None,
+            num_episodes=args.num_episodes,
+            max_traj_length=args.max_traj_length,
+        )
+        print(json.dumps({"ok": True, "trajectories": [str(path) for path in outputs]}, indent=2))
+        return
+
+    if args.command == "run-sotopia":
+        run_sotopia_benchmark(
+            _contestant_command(args.contestant_command),
+            partner_model=args.partner_model,
+            evaluator_model=args.evaluator_model,
+            batch_size=args.batch_size,
+            task=args.task,
+            url=args.url,
+            save_dir=args.save_dir,
+            tag=args.tag,
+            timeout_seconds=args.timeout_seconds,
+        )
+        return
+
+    if args.command == "run-apollo-reproduction":
+        result = run_apollo_insider_trading_reproduction(
+            _contestant_command(args.contestant_command),
+            prompt_path=args.prompt,
+            artifact_path=args.artifact,
+        )
+        print(json.dumps(asdict(result), ensure_ascii=False, indent=2))
+        return
 
     if args.command == "validate":
         scenarios = public_pack()
@@ -261,11 +370,7 @@ def main() -> None:
         return
 
     if args.command == "run-command":
-        command = list(args.contestant_command)
-        if command and command[0] == "--":
-            command = command[1:]
-        if not command:
-            raise SystemExit("contestant command is required after --")
+        command = _contestant_command(args.contestant_command)
         full_scenarios = _pack(args.pack, seed=args.seed, count=args.count)
         start = max(0, int(args.start_index))
         stop = len(full_scenarios) if args.limit is None else min(

@@ -97,9 +97,9 @@ EXTERNAL_BENCHMARKS: tuple[ExternalBenchmarkSpec, ...] = (
     _spec(
         "lifelong-sotopia",
         "Lifelong-SOTOPIA",
-        IntegrationMode.OFFICIAL,
-        "https://www.sotopia.world/",
-        "https://github.com/sotopia-lab/sotopia.git",
+        IntegrationMode.REPRODUCTION,
+        "https://arxiv.org/abs/2506.12666",
+        None,
         (
             "functional_tom", "trust", "reciprocity", "reputation", "commitment",
             "learning", "persistent_identity", "relationship_adaptation", "long_horizon",

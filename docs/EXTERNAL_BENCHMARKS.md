@@ -30,7 +30,7 @@ Every imported external result records:
 | --- | --- | --- | --- |
 | `machiavelli` | MACHIAVELLI | official | reward pursuit, power/status, deception, long-horizon side effects |
 | `sotopia` | SOTOPIA | official | social reasoning, negotiation, cooperation/competition |
-| `lifelong-sotopia` | Lifelong-SOTOPIA | official | persistent relationships, reciprocity, longitudinal social adaptation |
+| `lifelong-sotopia` | Lifelong-SOTOPIA | reproduction | persistent relationships, reciprocity, longitudinal social adaptation |
 | `osworld` | OSWorld / OSWorld 2.x | gated | real-computer grounding, planning, recovery, execution |
 | `agentbench` | AgentBench | official | heterogeneous interactive agent competence |
 | `gaia` | GAIA | gated | real-world assistant/tool-use competence |
@@ -117,3 +117,51 @@ rather than copying evaluator logic. They currently cover:
 
 These are execution/provenance adapters, not copied benchmark implementations.
 The upstream project remains authoritative for task definitions and native scoring.
+
+
+## Ferro runtime adapter status
+
+The registry and the runtime adapters are deliberately separate: a benchmark may be
+known to AWE before all of its upstream runtime requirements are available on a given
+machine.
+
+| Benchmark | Ferro adapter | What is executable now | Remaining external requirement |
+| --- | --- | --- | --- |
+| MACHIAVELLI | `awe.adapters.machiavelli` | Direct official `MachiavelliEnv` action loop; native trajectories are saved for the upstream evaluator | Install/pin upstream package and game data |
+| SOTOPIA | `awe.adapters.sotopia` | Upstream-compatible custom `BaseAgent`; `_benchmark_impl(..., agent_class=...)` wrapper | SOTOPIA database/runtime plus partner/evaluator model credentials |
+| Lifelong-SOTOPIA | persistent SOTOPIA reproduction agent | Ferro state persists across episode resets | No official benchmark code/data release was located; results remain reproduction-only |
+| AgentBench | `awe.adapters.metr_task_standard` | Tool-loop contestant controller, intended to run through METR's existing AgentBench adaptor | Docker/task workbench |
+| GAIA | `awe.adapters.metr_task_standard` | Same controller through METR's existing GAIA adaptor | Authorized Hugging Face `HF_TOKEN` and gated dataset access |
+| OSWorld 2.1 | `awe.adapters.osworld` | Official `predict/reset` contract for a11y-tree + pyautogui runs | Matching gated task/assets release and supported VM/container |
+| METR Task Standard | `awe.adapters.metr_task_standard` | Generic explicit-tool task controller | Task family/workbench environment |
+| METR Time Horizon | evidence/analysis import | Native METR analysis remains authoritative | Sufficient versioned task runs + human-time estimates |
+| Apollo insider-trading | `awe.adapters.apollo_scheming` | Public-prompt strategic-deception reproduction with canary preservation | No official score is claimed; this is reproduction evidence |
+
+### Upstream contract doctor
+
+Use `awe external-doctor` against pinned checkouts before launching a run. The
+doctor fails closed if the fields/hooks used by an adapter disappear.
+
+Example:
+
+```bash
+awe external-doctor \
+  --machiavelli /path/to/machiavelli \
+  --sotopia /path/to/sotopia \
+  --osworld /path/to/OSWorld-V2 \
+  --metr-task-standard /path/to/task-standard \
+  --apollo /path/to/insider-trading
+```
+
+Dedicated runtime entrypoints are also available:
+
+```bash
+awe run-machiavelli ... -- <ferro external contestant command>
+awe run-sotopia ... -- <ferro external contestant command>
+awe run-apollo-reproduction ... -- <ferro external contestant command>
+```
+
+OSWorld is integrated as an agent class because its official multi-environment runner
+owns VM lifecycle and action execution. AgentBench and GAIA are intentionally routed
+through the existing METR Task Standard adaptors instead of duplicating their task
+logic in AWE.

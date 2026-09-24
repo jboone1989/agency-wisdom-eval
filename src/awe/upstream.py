@@ -44,12 +44,12 @@ UPSTREAM_RUNNER_PLANS: tuple[UpstreamRunnerPlan, ...] = (
     ),
     UpstreamRunnerPlan(
         benchmark_id="lifelong-sotopia",
-        repository="https://github.com/sotopia-lab/sotopia.git",
+        repository=None,
         access_requirements=(),
-        setup_entrypoints=("pin a Lifelong-SOTOPIA-capable upstream revision/configuration",),
-        run_entrypoints=("run the upstream longitudinal social benchmark with persistent episode/history storage",),
+        setup_entrypoints=("pin a SOTOPIA base revision and the published Lifelong-SOTOPIA methodology",),
+        run_entrypoints=("run an explicitly labelled Lifelong-SOTOPIA methodology reproduction with persistent episode/history storage",),
         artifact_note="Retain the persistent episode/history database plus evaluator outputs and exact experiment tag.",
-        adapter_strategy="Delegate each social action to the contestant while preserving upstream longitudinal state.",
+        adapter_strategy="Reuse the SOTOPIA contestant bridge while preserving Ferro state across episodes; mark all outputs reproduction until official code/data are available.",
     ),
     UpstreamRunnerPlan(
         benchmark_id="osworld",
@@ -88,7 +88,7 @@ UPSTREAM_RUNNER_PLANS: tuple[UpstreamRunnerPlan, ...] = (
     ),
     UpstreamRunnerPlan(
         benchmark_id="gaia",
-        repository=None,
+        repository="https://github.com/ApolloResearch/insider-trading.git",
         access_requirements=(
             "accept the GAIA Hugging Face gated dataset terms",
             "do not redistribute validation/test material outside gated/private storage",
@@ -125,7 +125,7 @@ UPSTREAM_RUNNER_PLANS: tuple[UpstreamRunnerPlan, ...] = (
     ),
     UpstreamRunnerPlan(
         benchmark_id="apollo-scheming",
-        repository=None,
+        repository="https://github.com/ApolloResearch/insider-trading.git",
         access_requirements=(),
         setup_entrypoints=("implement only from publicly released methodology/evaluation material",),
         run_entrypoints=("run the explicitly labelled reproduction harness",),
