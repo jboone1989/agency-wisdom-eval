@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import random
+from dataclasses import replace
 
 from .domains import DOMAIN_BY_ID, ExamLevel
 from .models import Action, Node, Scenario, ScoreDelta, Transition
@@ -248,6 +249,19 @@ def generated_holdout(seed: str, count: int = 40) -> list[Scenario]:
             )
         )
     return scenarios
+
+
+def generated_train(seed: str, count: int = 40) -> list[Scenario]:
+    """Generate optimizer-visible variants from an explicit non-secret seed.
+
+    Train and hidden intentionally share the same generator distribution. The
+    optimizer may know the train seed; formal evaluators keep the holdout seed
+    outside the mutation agent's accessible context.
+    """
+    return [
+        replace(scenario, provenance="generated-train")
+        for scenario in generated_holdout(seed, count)
+    ]
 
 
 def public_pack() -> list[Scenario]:
