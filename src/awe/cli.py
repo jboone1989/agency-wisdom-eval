@@ -21,6 +21,7 @@ from .external import (
     sha256_file,
     validate_external_evidence,
 )
+from .mature_profile import build_mature_profile, mature_profile_to_json
 from .packs import generated_holdout, public_pack
 from .runner import pack_hash, run_exam
 from .upstream import get_upstream_runner_plan
@@ -195,6 +196,10 @@ def main() -> None:
     external_verify = sub.add_parser("external-verify")
     external_verify.add_argument("evidence")
 
+    external_profile = sub.add_parser("external-profile")
+    external_profile.add_argument("manifest")
+    external_profile.add_argument("--output")
+
     doctor = sub.add_parser("external-doctor")
     doctor.add_argument("--machiavelli")
     doctor.add_argument("--sotopia")
@@ -301,6 +306,16 @@ def main() -> None:
 
     if args.command == "external-doctor":
         raise SystemExit(_external_doctor(args))
+
+    if args.command == "external-profile":
+        profile = build_mature_profile(args.manifest)
+        rendered = mature_profile_to_json(profile)
+        if args.output:
+            output = Path(args.output)
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(rendered, encoding="utf-8")
+        print(rendered, end="")
+        raise SystemExit(0 if profile.evidence_valid else 1)
 
     if args.command == "external-verify":
         evidence = evidence_from_json(args.evidence)

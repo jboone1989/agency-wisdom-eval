@@ -165,3 +165,34 @@ OSWorld is integrated as an agent class because its official multi-environment r
 owns VM lifecycle and action execution. AgentBench and GAIA are intentionally routed
 through the existing METR Task Standard adaptors instead of duplicating their task
 logic in AWE.
+
+
+## Mature benchmark profiles
+
+AWE can build a validated cross-benchmark evidence profile without inventing a
+cross-benchmark numeric score.
+
+Create a JSON manifest that gives every registered mature benchmark an explicit
+status and lists any AWE external-evidence envelopes that support it. Supported
+statuses are:
+
+- `COMPLETED`
+- `PARTIAL`
+- `INFRASTRUCTURE_BLOCKED`
+- `GATED_NOT_RUN`
+- `NOT_RUN`
+- `INSUFFICIENT_EVIDENCE`
+
+Then run:
+
+```bash
+awe external-profile profile.manifest.json --output profile.json
+```
+
+The builder verifies benchmark identity, contestant identity, evidence-envelope
+validity, native artifact SHA-256 values, and registry coverage. A profile is invalid
+if it silently omits a registered benchmark.
+
+`cross_benchmark_score` is deliberately always `null`. AgentBench task success,
+SOTOPIA social dimensions, Apollo-style scheming events, and METR time horizons have
+different semantics and must remain separately interpretable.
